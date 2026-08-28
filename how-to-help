@@ -1,0 +1,6 @@
+Review the files ast/process.lisp and jlinker.lisp and give me suggestions
+Create a tree walker to output the output of process.lisp (perhaps in a csv)
+to enable comparison with the ast in eclipse, and to enable checking that the
+ast is complete
+Figure out why the formats for defclass and defnew had problems in lisp-format.
+The macros are expanded for debugging.
