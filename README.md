@@ -1,6 +1,9 @@
 # AST-to-Lisp
 Update of jnil to use antlr, and other ast generators.
 
+Contact me at dan.stanger@ieee.org, for current updates or to help. Any missing files can be found at the
+original project.
+
 Here is a link to the original project: https://github.com/francogrex/jnil .
 Attached is a paper which describes something about it: https://dl.acm.org/doi/pdf/10.1145/1622123.1622147. Here is a link to the java to python converter whose antlr3 parser I modified slightly
 https://github.com/natural/java2python .
