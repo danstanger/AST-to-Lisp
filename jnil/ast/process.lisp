@@ -36,6 +36,7 @@
 
 (defun make-triple (&key mo ti ty) (make-instance 'triple :mo-i mo :ti-i ti :ty-i ty))
 
+(defvar *class-top-level-scope* nil) ; Variables declared when true are fields
 (defgeneric process (java-class eqarg &rest r)
   (:documentation "Parses java ast output")
   (:method (c eqarg &rest r)
@@ -50,14 +51,7 @@
 ;; more than one class in a compilation unit.
 (defmethod process (c (eqjs (eql 'compilation-unit)) &rest r)
   (format t "~&process~a ~a~%" eqjs r)
-  (let ((cu (make-instance 'compilation-unit)))
-    ;    (print cu)
-    ;    (print (slot-value cu 'jnil.ast::eclipse-name))
-    (setf (slot-value cu 'jnil.ast::unit-package) nil)
-    (setf (slot-value cu 'jnil.ast::imports) nil)
-    (setf (slot-value cu 'jnil.ast::types) nil)
-    (setf (slot-value cu 'jnil.ast::node-parent) nil)
-    (setf (slot-value cu 'jnil.ast::node-type) 'jnil.ast::+eclipse-compilation-unit+)
+  (let ((cu (make-compilation-unit :unit-package nil :imports nil :types nil :node-parent nil :node-type 'jnil.ast::+eclipse-compilation-unit+)))
     (dolist (s r)
       (format t "~&process java source dolist s ~a~%" s)
       (apply #'process cu s)
@@ -71,18 +65,20 @@
     (when (listp m) (apply #'process c m))
     (format t "~&name ~a type-of name ~a~%" n (type-of n))
     (let* ((sn (make-simple-name :node-parent nil :name-string (symbol-name n) :name-binding nil))
-	   (td (make-type-declaration :node-parent c :declaration-name sn :child sn)))
+	   (td (make-type-declaration :node-parent c :declaration-name sn :child sn :node-type +type-declaration+)))
       (apply #'process td r1)
       (safe-push c jnil.ast::types td))))
 
 (defmethod process (c (eqctls (eql 'jnil.ast::class_top_level_scope)) &rest r)
   (format t "~&process~a class-arg ~a |~a|~%" eqctls (type-of c) r)
-  (dolist (e r)
-    (format t "~&process element ~a~%" e)
-    (apply #'process c e)))
+  (let ((*class-top-level-scope* t))
+    (dolist (e r)
+      (format t "~&process element ~a~%" e)
+      (apply #'process c e))))
 
 (defmethod process (td (eqvmd (eql 'jnil.ast::void_method_decl)) &rest r)
-  (format t "~&process~a class-arg ~a |~a|~%" eqvmd (type-of td) r)
+ (format t "~&process~a class-arg ~a |~a|~%" eqvmd (type-of td) r)
+ (let ((*class-top-level-scope* nil))
   (destructuring-bind (m n fpl bs) r
     (format t "~&process~a m ~a n ~a fpl ~a~%bs ~a ~%" eqvmd m n fpl bs)
     (let ((md (make-instance 'jnil.ast::method-declaration))
@@ -96,12 +92,12 @@
       (setf (slot-value md 'jnil.ast::thrownexceptions) nil) ;fixme: create an initial value
       (when (listp m) (apply #'process md m))
       (setf (slot-value md 'jnil.ast::declaration-return-type)
-	    (process-return-type "void"))
+	    (process-return-type "void" md))
       (setf (slot-value md 'jnil.ast::name) sn)
       (push md (slot-value td 'jnil.ast::methods))
       (format t "~&fpl ~a~%" fpl)
       (apply #'process md fpl)
-      (apply #'process md bs))))
+      (apply #'process md bs)))))
 
 (defmethod process (td (eqfmd (eql 'jnil.ast::function_method_decl)) &rest r)
   (format t "~&process~a class-arg ~a |~a|~%" eqfmd (type-of td) r)
@@ -112,7 +108,7 @@
       (setf (slot-value md 'jnil.ast::parameters) nil) ;fixme: create an initial value
       (when (listp ml) (apply #'process md ml))
       (setf (slot-value md 'jnil.ast::declaration-return-type)
-	    (process-return-type "void"))
+	    (process-return-type "void" md))
       (push md (slot-value td 'jnil.ast::methods))
       (format t "~&fpl ~a~%" fpl)
       (when (listp fpl) (apply #'process md fpl))
@@ -182,7 +178,12 @@
 	   (vn (symbol-name v))
 	   (tb (type-binding ti))
 	   (sn (make-simple-name :name-string vn :name-binding nil))
-	   (bi (make-variable-binding :binding-declaring-class (get-declaring-class td) :binding-identifier nil :binding-field-p nil :binding-type-binding tb :binding-modifiers 0 :binding-name vn))
+	   (bi (make-variable-binding
+		 :binding-declaring-class (get-declaring-class td)
+		 :binding-identifier nil
+		 :binding-field-p (when *class-top-level-scope* t)
+		 :binding-type-binding tb :binding-modifiers 0
+		 :binding-name vn))
 	   (fr (make-variable-declaration-fragment :node-parent td :declaration-name sn :declaration-initializer nil :declaration-binding bi :child sn)))
       (safe-push td jnil.ast::fields fr) ; This is wrong, need to pass it up to add the type
       ;(break)
@@ -233,6 +234,13 @@
 	  (at (when ar (apply #'process nil ar))))
       (cond ((boundp 'at) (setf (slot-value at 'jnil.ast::element-type) ty) ar)
 	    (t ty)))))
+
+(defmethod process (obj (eqpt (eql 'jnil.ast::primitive-type)) &rest r)
+  (format t "~&process~a ~a~%" eqpt r)
+  (let* ((sn (symbol-name (first r)))
+	 (tb (make-type-binding :binding-name sn))
+	 (st (make-primitive-type :node-parent obj :primitive-type-code sn :type-binding tb )))
+    st))
 
 (defmethod process (obj (eqqti (eql 'jnil.ast::qualified_type_ident)) &rest r)
   (format t "~&process~a ~a~%" eqqti r)
@@ -345,11 +353,12 @@
 	((atom i) (push i acc) acc)
 	(t (fqn (second i) (push (third i) acc)))))
 ;(trace fqn)
-(defun process-return-type (arg)
-  (let ((f (coerce (cdr (assoc arg *primitive-types* :test #'equal)) 'function)))
-    (if f (let ((p (funcall f)))
-	    (setf (slot-value p 'jnil.ast::primitivetypecode) arg) p)
-	(progn (warn "not implemented ~a~%" arg) (break) nil))))
+
+(defun process-return-type (arg parent)
+  (if (member arg +primitive-types+ :test #'equal)
+    (let* ((p (make-primitive-type :primitive-type-code arg :node-parent parent)))
+      p)
+    (progn (warn "not implemented ~a~%" arg) (break) nil)))
 
 (defun get-declaring-class (c)
   (if (null c) nil
@@ -357,6 +366,9 @@
         (if (equal (class-of c) (find-class 'jnil.ast::type-declaration)) c
 	    (get-declaring-class p)))))
 (trace get-declaring-class)
+
+(defconstant +primitive-types+
+	     '("byte" "short" "char" "int" "long" "float" "double" "boolean" "void"))
 
 (defparameter *primitive-types*
   (load-time-value

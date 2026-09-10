@@ -28,22 +28,40 @@
 
 (in-package :jnil.ast)
 
+; See org.eclipse.jdt.core.dom.Modifier for the bitfields
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; symbol definition ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;
+(defconstant +abstract+ 1024)
+(defconstant +default+ 65536)
+(defconstant +final+ 16)
+(defconstant +module+ 32768)
+(defconstant +native+ 256)
+(defconstant +non_sealed+ 4096)
+(defconstant +none+ 0)
+(defconstant +private+ 2)
+(defconstant +protected+ 4)
+(defconstant +public+ 1)
+(defconstant +sealed+ 512)
+(defconstant +static+ 8)
+(defconstant +strictfp+ 2048)
+(defconstant +synchronized+ 32)
+(defconstant +transient+ 128)
+(defconstant +volatile+ 64)
 
 ;;; Java methods
 (defmethod abstract-p ((modifier integer))
-  (jstatic "isAbstract" "org.eclipse.jdt.core.dom.Modifier" modifier))
+  (logtest +abstract+ modifier))
 
 (defmethod static-p ((modifier integer))
-  (jstatic "isStatic" "org.eclipse.jdt.core.dom.Modifier" modifier))
+  ;(break "static-p modifier")
+  (logtest +static+ modifier))
 
 (defmethod public-p ((modifier integer))
-  (jstatic "isPublic" "org.eclipse.jdt.core.dom.Modifier" modifier))
+  (logtest +public+ modifier))
 
 (defmethod final-p ((modifier integer))
-  (jstatic "isFinal" "org.eclipse.jdt.core.dom.Modifier" modifier))
+  (logtest +final+ modifier))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; symbols are exported here ;;;

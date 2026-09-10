@@ -33,14 +33,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def-java-class (primitive-type "org.eclipse.jdt.core.dom.PrimitiveType") (jtype)
-  () () (primitivetypecode))
+  () () (primitive-type-code))
 
 ;;; Java methods
 (jlinker-output1) ;instantiate defclass
 (jlinker-cleanup) ;clear plist
 
 (defmethod type-code ((node primitive-type))
-  (jcall "toString" (jcall "getPrimitiveTypeCode" node)))
+  (primitive-type-code))
 
 ;;; Lisp extensions
 (defun primitive-type-p (obj)
