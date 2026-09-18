@@ -670,8 +670,8 @@ statement
         |   SEMI                                                            ->  ^(ASSERT $expr1)
         )
     |   IF parenthesizedExpression ifStat=statement
-        (   ELSE elseStat=statement                                         ->  ^(IF parenthesizedExpression $ifStat $elseStat)
-        |                                                                   ->  ^(IF parenthesizedExpression $ifStat)
+        (   ELSE elseStat=statement                                         ->  ^(IF[$IF, "IFSTATEMENT"] parenthesizedExpression $ifStat $elseStat)
+        |                                                                   ->  ^(IF[$IF, "IFSTATEMENT"] parenthesizedExpression $ifStat)
         )
     |   FOR LPAREN
         (   forInit SEMI forCondition SEMI forUpdater RPAREN statement      ->  ^(FOR forInit forCondition forUpdater statement)
