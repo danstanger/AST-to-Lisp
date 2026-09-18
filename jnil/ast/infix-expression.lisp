@@ -50,7 +50,7 @@
 (jlinker-cleanup) ;clear plist
 
 (defmethod expression-operator ((expr infix-expression))
-  (jcall "toString" (jcall "getOperator" expr)))
+  (slot-value expr 'operator))
 
 (defmethod expression-extended-operands ((expr infix-expression))
   (jlist2cons (jcall "extendedOperands" expr)))
@@ -72,8 +72,10 @@
           (list (expression-right-operand node))
           ;; Be careful not to trigger lazy creation of list.
           ;; -- TMD, 09 November 2004
-          (if* (extended-operands-p node) 
-             then (expression-extended-operands node))))
+	  nil))
+; Ignore the following for now
+         ; (if* (extended-operands-p node) 
+          ;   then (expression-extended-operands node))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; symbols are exported here ;;;
