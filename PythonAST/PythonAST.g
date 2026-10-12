@@ -228,6 +228,11 @@ classStmt : CLASS '('
     keywords ','
     BODY '=' stmtList ','
     (DECORATOR_LIST '=' decoratorList)? ')'
+    ->  ^(CLASS identifier
+	^(BASES basesList)
+	keywords
+	^(BODY stmtList))
+	^(DECORATOR_LIST decoratorList)?
     ;
 
 alias : ALIAS '(' identifier (',' ASNAME '=' STRING)? ')' ;
@@ -244,7 +249,7 @@ aliasList : '[' alias (',' alias)* ']' ;
 stmtList : '[' stmt (',' stmt)* ']' -> stmt+ ;
 elseStmtList : '[' (stmt (',' stmt)*)? ']' ;
 
-basesList : '[' basesExpr (',' basesExpr)* ']' | '[' ']' ;
+basesList : '[' basesExpr (',' basesExpr)* ']' -> basesExpr+ | '[' ']' -> NIL ;
 decoratorList : '[' nameExpr (',' nameExpr)* ']' | '[' ']' ;
 targetsList : '[' (targets (',' targets)*)? ']' ;
 targets : nameExpr|attributeExpr|subscriptExpr|tupleExpr ;
