@@ -62,6 +62,7 @@
     `(progn
        (defclass ,klass-name ,superclass
 	 ((eclipse-name :initform ,java-class-string)
+	  (eqarg :initform nil)
 	  (properties :initform nil :reader get-property :writer (setf set-property))
 	  ,@jcall-fields ,@j))
        (defmethod print-object ((obj ,klass-name) stream)

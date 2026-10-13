@@ -52,7 +52,7 @@
 
 (defmethod declaration-fragments
     ((decl variable-declaration-statement))
-  (jlist2cons (jcall "fragments" decl)))
+  fragments)
 
 ;;; Lisp extensions
 (defun variable-declaration-statement-p (obj)

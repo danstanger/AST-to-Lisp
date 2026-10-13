@@ -50,6 +50,7 @@
   (typep obj 'field-declaration))
 
 (defmethod static-p ((decl field-declaration))
+  (break "static-p field-declaration")
   (static-p (declaration-modifiers decl)))
 
 (defmethod node-children ((node field-declaration))

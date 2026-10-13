@@ -58,6 +58,7 @@
   (final-p (binding-modifiers (name-binding name))))
 
 (defmethod static-p ((name name))
+  (break "static-p name")
   (static-p (binding-modifiers (name-binding name))))
 
 (defmethod field-p ((name name))

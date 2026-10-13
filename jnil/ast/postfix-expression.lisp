@@ -33,7 +33,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def-java-class (postfix-expression "org.eclipse.jdt.core.dom.PostfixExpression") (expression)
-  () () (operator))
+  () () (expression-operator))
 
 ;;; Java methods
 (def-java-method (expression-operand "getOperand") (postfix-expression))
@@ -43,7 +43,7 @@
 (jlinker-cleanup) ;clear plist
 
 (defmethod expression-operator ((expr postfix-expression))
-  (jcall "toString" (jcall "getOperator" expr)))
+  (slot-value expr 'jnil.ast::expression-operator))
 
 ;;; Lisp extensions
 (defun postfix-expression-p (obj)

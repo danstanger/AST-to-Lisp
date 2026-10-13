@@ -53,9 +53,12 @@
   (typep obj 'variable-declaration))
 
 (defmethod field-p ((decl variable-declaration))
+ ; (format t "declaration-binding ~a field-p ~a~%" (declaration-binding decl)
+;	(binding-field-p (declaration-binding decl)) )
   (binding-field-p (declaration-binding decl)))
 
 (defmethod static-p ((decl variable-declaration))
+ ; (break  "variable declaration-binding ~a binding-modifiers ~a~%" (declaration-binding decl) (binding-modifiers (declaration-binding decl)))
   (static-p (binding-modifiers (declaration-binding decl))))
 
 (defmethod final-p ((decl variable-declaration))

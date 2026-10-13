@@ -32,6 +32,11 @@
 ;;; symbol definition ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
+; The fourth element created a function called
+; binding-variable-value which returned the constant 3, the value of the  
+; IBinding static int VARIABLE.
+; I believe this is the only place that the fourth element this list
+; is populated.
 (def-java-class (binding "org.eclipse.jdt.core.dom.IBinding") ()
   () (((binding-variable-value "VARIABLE"))) (name))
 
@@ -46,13 +51,18 @@
 (jlinker-output2) ;instantiate methods
 (jlinker-cleanup) ;clear plist
 
+(defun binding-variable-value (&rest r)
+  3) ; The value of IBinding static final int VARIABLE
+
 (defmethod binding-project-name-string ((binding binding))
   "Returns the name of the Java Project where BINDING is declared."
   (jcall "getName" (jcall "getProject" (jcall "getJavaProject" (jcall "getJavaElement" binding)))))
 
 ;;; Lisp extensions
 (defmethod variable-p ((binding binding))
-  (= (binding-kind binding) (binding-variable-value binding)))
+  (typep binding 'jnil.ast::variable-binding))
+; Since java classes are no longer used, this is replaced by the previous line
+;  (= (binding-kind binding) (binding-variable-value binding)))
 
 (defmethod abstract-p ((binding binding))
   (abstract-p (binding-modifiers binding)))

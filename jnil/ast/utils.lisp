@@ -56,7 +56,7 @@
 (defun jlist2cons (jlist)
 ;  (break)
   jlist)
-;(trace jlist2cons)
+(trace jlist2cons)
 #|
 (defun jvector2cons (jvector)
   (let ((acc ()))
@@ -64,6 +64,7 @@
       (push (jarray-ref jvector i) acc))))
 |#
 (defun jvector2cons (jvector) (coerce jvector 'list))
+(trace jvector2cons)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; symbols are exported here ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

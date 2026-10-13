@@ -73,6 +73,7 @@ All instances of METHOD have unique signatures in the context of a Java Project.
   (abstract-p (declaration-modifiers decl)))
 
 (defmethod static-p ((decl method-declaration))
+  (break "static-p method declaration")
   (static-p (declaration-modifiers decl)))
 
 (defmethod public-p ((decl method-declaration))

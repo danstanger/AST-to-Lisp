@@ -3,7 +3,7 @@
 ;;;
 ;;; This code is free software; you can redistribute it and/or
 ;;; modify it under the terms of the version 2.1 of
-;;; the GNU Lesser General Public License as published by 
+;;; the GNU Lesser General Public License as published by
 ;;; the Free Software Foundation, as clarified by the preamble
 ;;; found in license-llgpl.txt.
 ;;;
@@ -12,11 +12,11 @@
 ;;; merchantability or fitness for a particular purpose. See the GNU
 ;;; Lesser General Public License for more details.
 ;;;
-;;; Version 2.1 of the GNU Lesser General Public License is in the file 
+;;; Version 2.1 of the GNU Lesser General Public License is in the file
 ;;; license-lgpl.txt that was distributed with this file.
 ;;; If it is not present, you can access it from
 ;;; http://www.gnu.org/copyleft/lesser.txt (until superseded by a newer
-;;; version) or write to the Free Software Foundation, Inc., 59 Temple Place, 
+;;; version) or write to the Free Software Foundation, Inc., 59 Temple Place,
 ;;; Suite 330, Boston, MA  02111-1307  USA
 ;;;
 ;;; Description: Parse sexpressions produced by Antlr 3 Java Parser
@@ -37,8 +37,12 @@
 (defun make-triple (&key mo ti ty) (make-instance 'triple :mo-i mo :ti-i ti :ty-i ty))
 
 (defvar *class-top-level-scope* nil) ; Variables declared when true are fields
+(defvar *eqarg-stack* nil) ; Used for debugging
+
 (defgeneric process (java-class eqarg &rest r)
   (:documentation "Parses java ast output")
+  (:method :before (c e &rest r) (push e *eqarg-stack*))
+  (:method :after (c e &rest r) (pop *eqarg-stack*))
   (:method (c eqarg &rest r)
     (format t "~&defgeneric process ~a ~a ~a~%" c eqarg r)
     ;    (break)
@@ -99,12 +103,14 @@
   (format t "~&process~a class-arg ~a |~a|~%" eqfmd (type-of td) r)
   (destructuring-bind (ml ty n fpl bs) r
     (format t "~&process~a ml ~a n ~a fpl ~a~%bs ~a ~%" eqfmd ml n fpl bs)
-    (let* ((sn (make-simple-name :name-string (string n) :name-binding nil  ))
+    (let* ((ns (string n))
+	   (mb (make-method-binding :binding-name ns))
+	   (sn (make-simple-name :name-string ns :name-binding mb))
 	   (md (make-method-declaration :node-parent td :child sn :declaration-name sn :name sn :thrownexceptions nil)))
       (setf (slot-value md 'jnil.ast::parameters) nil) ;fixme: create an initial value
       (when (listp ml) (apply #'process md ml))
 ;(break "function-method-declaration 110 type-of node-parent ~a" (type-of (slot-value md 'jnil.ast::node-parent)))
-      (process-return-type "void" md)) ;fixme correct void
+      (process-return-type "void" md) ;fixme correct void
       (push md (slot-value td 'jnil.ast::methods))
       (format t "~&fpl ~a~%" fpl)
       (when (listp fpl) (apply #'process md fpl)
@@ -112,28 +118,21 @@
 	)
       (apply #'process md bs)
 ;(break "function-method-declaration 122 type-of node-parent ~a" (type-of (slot-value md 'jnil.ast::node-parent)))
-      ))
+      )))
 
 (defmethod process (c (eqpa (eql 'package-declaration)) &rest r)
   (format t "~&process~a ~a~%" eqpa r)
-  (let* ((sn (make-simple-name :name-string (fqn (first r)) :name-binding nil))
+  (let* ((ns (fqn (first r)))
+	 (pb (make-package-binding :binding-name ns))
+	 (sn (make-simple-name :name-string ns :name-binding pb))
 	 (pd (make-package-declaration :node-parent c :declaration-name sn :child sn)))
     (setf (slot-value c 'jnil.ast::unit-package) pd)))
 
 (defmethod process (c (eqim (eql 'jnil.ast::import-declaration)) &rest r)
   (format t "~&process~a ~a~%" eqim r)
-  (labels ((allexports (x) (eql '.* x))
-	   (imp (i &optional (acc nil))
-	     (cond ((null i) acc)
-		   ((atom i) (push i acc) acc)
-		   (t (imp (second i) (push (third i) acc))))))
-    (let ((id (make-instance 'jnil.ast::import-declaration))
-	  (nm (make-instance 'jnil.ast::name)))
-      (setf (slot-value id 'jnil.ast::node-parent) c)
-      (setf (slot-value nm 'jnil.ast::node-parent) id)
-      (setf (slot-value nm 'jnil.ast::name-string) (format nil "~{~a~^.~}" (imp (first r))))
-      (setf (slot-value id 'jnil.ast::declaration-name) nm)
-      (setf (slot-value id 'jnil.ast::on-demand-p) (allexports (second r)))
+  (labels ((allexports (x) (eql '.* x)))
+    (let ((nm (make-name :name-string (format nil "~{~a~^.~}" (fqn (first r)))))
+	  (id (make-import-declaration :node-parent c :child nm :declaration-name nm :on-demand-p (allexports (second r)))))
       (safe-push c jnil.ast::imports id))))
 
 (defmethod process (c (eqml (eql 'jnil.ast::modifier_list)) &rest r)
@@ -162,28 +161,39 @@
     (dolist (v r)
       (apply #'process tr v)))
 
+(defun process-fragment (tr v &optional a)
+  (let* ((ti (triple-ti tr))
+	 (td (triple-ty tr))
+	 (vn (symbol-name v))
+	 (tb (type-binding ti))
+	 (bi (make-variable-binding
+	      :binding-declaring-class (get-declaring-class td)
+	      :binding-identifier nil
+	      :binding-field-p (when *class-top-level-scope* t)
+	      :binding-type-binding tb :binding-modifiers 0
+	      :binding-name vn))
+	 (sn (make-simple-name :name-string vn :name-binding bi))
+	 (fr (make-variable-declaration-fragment
+	      :node-parent td
+	      :declaration-name sn
+	      :declaration-initializer nil
+	      :declaration-binding bi
+	      :child sn)))
+    fr))
+
 (defmethod process (tr (eqvdr (eql 'jnil.ast::var_declarator)) &rest r)
   (format t "~&process~a class-arg ~a |~a|~%" eqvdr (type-of tr) r)
   (format t "~&process~a ~a~%" eqvdr r)
-  ;(break)
   (destructuring-bind (v &optional e &rest unex) r
     (when (and (boundp 'unex) unex) (warn "Unexpected third value in VAR_DECLARATOR processing ~a" unex))
-    (let* ((ti (triple-ti tr))
-	   (td (triple-ty tr))
-	   (vn (symbol-name v))
-	   (tb (type-binding ti))
-	   (sn (make-simple-name :name-string vn :name-binding nil))
-	   (bi (make-variable-binding
-		 :binding-declaring-class (get-declaring-class td)
-		 :binding-identifier nil
-		 :binding-field-p (when *class-top-level-scope* t)
-		 :binding-type-binding tb :binding-modifiers 0
-		 :binding-name vn))
-	   (fr (make-variable-declaration-fragment :node-parent td :declaration-name sn :declaration-initializer nil :declaration-binding bi :child sn)))
-	   (apply #'process fr e)
-      (safe-push td jnil.ast::fields fr) ; This is wrong, need to pass it up to add the type
-      ;(break)
-      fr)))
+    (let* ((fr (if (atom v)
+		 (process-fragment tr v)
+		 (apply #'process-fragment tr v)))
+	   (vds (make-variable-declaration-statement)))
+;      (break "var_declarator fr ~a e ~a" fr e)
+      (when e (apply #'process fr e))
+      (safe-push vds jnil.ast::fragments fr) ; This is wrong, need to pass it up to add the type
+      vds)))
 
 (defmethod process (md (eqfpl (eql 'jnil.ast::formal_param_list)) &rest r)
   (format t "~&process~a ~a~%" eqfpl r)
@@ -197,8 +207,10 @@
     (when (and (boundp 'unex) unex) (warn "Unexpected fourth value in parameter processing ~a" unex))
     (format t "~&variable name ~a~%" v)
     (format t "~&variable type ~a~%" ty)
-    (let* ((sn (if (listp v) (apply #'process nil v)
-		   (make-simple-name :name-string (symbol-name v))))
+    (let* ((tb (make-type-binding :binding-name ty))
+	   (vb (make-variable-binding :binding-name (symbol-name v) :binding-type-binding tb :binding-modifiers 0))
+	   (sn (if (listp v) (apply #'process nil v)
+		   (make-simple-name :name-binding vb :name-string (symbol-name v))))
 	   (td (apply #'process nil ty))
 	   (svd (make-single-variable-declaration :node-parent md
 						  :declaration-name sn
@@ -241,20 +253,20 @@
 (defmethod process (obj (eqqti (eql 'jnil.ast::qualified_type_ident)) &rest r)
   (format t "~&process~a ~a~%" eqqti r)
   (let* ((sns (format nil "~@:(~{~a~^-~}~)" r))
-	 (sn (make-simple-name :node-parent nil :name-string sns :name-binding nil))
 	 (tb (make-type-binding :binding-name sns))
+	 (sn (make-simple-name :name-string sns :name-binding tb))
 	 (st (make-simple-type :node-parent obj :node-type sn :child sn :type-binding tb)))
     ;(intern (format nil "~@:(~{~a~^-~}~)" r) *package*))
     st))
 
-(defmethod process (obj (eqas (eql 'jnil.ast::array_element_access)) &rest r)
-  (format t "~&process~a ~a~%" eqas r)
+(defmethod process (obj (eqaes (eql 'jnil.ast::array_element_access)) &rest r)
+  (format t "~&process~a ~a~%" eqaes r)
   (destructuring-bind (n i) r
     (let* ((sn (make-simple-name :name-string (format nil "~a" n) :name-binding nil))
 	   (ind ())
 	   (aa (make-array-access :array-access-array sn :array-access-index ind)))
       aa)))
- 
+
 (defmethod process (nil-obj (eqqti (eql 'jnil.ast::array_declarator_list)) &rest r)
   (format t "~&process~a ~a~%" eqqti r)
   (apply #'process nil-obj r))
@@ -264,6 +276,22 @@
   (format t "~&process~a ~a~%" eqad r)
   (let ((ar (make-instance 'jnil.ast::array-type)))
     ar))
+
+(defmethod process (obj (eqas (eql 'jnil.ast::assignment)) &rest r)
+  (format t "~&process~a ~a~%" eqas r)
+  t)
+
+(defmethod process (obj (eqsac (eql 'jnil.ast::static_array_creator)) &rest r)
+  (format t "~&process~a ~a~%" eqsac r)
+  (destructuring-bind (ty le) r
+    (format t "dbind ~a ~a~%" ty le)
+    (let* ((ac (make-array-creation
+		:node-parent obj
+		:array-creation-initializer nil
+		:dimensions (list 1))) ;fixme need to process le
+	   (ti (apply #'process ac ty)))
+	(setf (slot-value ac 'jnil.ast::array-creation-type) ti)
+      ac)))
 
 (defmethod process (md (eqal (eql 'jnil.ast::argument_list)) &rest r)
   (format t "~&process~a ~a~%" eqal r)
@@ -293,8 +321,7 @@
   (format t "~&process~a block specialization ~a~%" eqes r)
   (destructuring-bind (e) r
     (format t "~&destructuring-bind value ~a~%" e)
-    (let ((es (make-instance 'jnil.ast::expression-statement)))
-      (setf (slot-value es 'jnil.ast::node-parent) jb)
+    (let ((es (make-expression-statement :node-parent jb)))
       (apply #'process es e)
       (safe-push jb jnil.ast::statements es))))
 
@@ -310,6 +337,16 @@
 (break "if ~a then ~a else ~a" (ifstatement-test ifst) (ifstatement-then ifst) (ifstatement-else ifst))
       (safe-push obj jnil.ast::statements ifst))))
 
+(defmethod process (obj (eqws (eql 'jnil.ast::while)) &rest r)
+  (format t "~&process~a ~a~%" eqws r)
+  (destructuring-bind (pe js) r
+    (let* ((peo (apply #'process (make-parenthesized-expression) pe))
+	   (body (apply #'process nil js))
+	   (whst (make-while-statement :node-parent obj :children (list peo body) :statement-expression peo :statement-body body)))
+; Not sure if I need to check if obj is a jblock
+(break "while ~a statements ~a" (statement-expression whst) (statement-body whst))
+      (safe-push obj jnil.ast::statements whst))))
+
 ; By specializing on parenthesized-expression an expression will be created
 ; instead of an expression-statement.
 ; Change eql token in parser
@@ -318,16 +355,14 @@
   (format t "~&process~a ~a~%" eqpe r)
   (apply #'process peo (first r)))
 
-;(defun jello (a b &rest r) (break) t)
-
 (defmethod process ((peo jnil.ast::parenthesized-expression)
 		    (eqe (eql 'jnil.ast::expr)) &rest r)
   (format t "~&process~a specialization ~a rest ~a~%" eqe peo r)
   (destructuring-bind (o le ri) (first r)
-    (let* ((elo (process-expression peo le))
-	   (ero (process-expression peo ri))
+    (let* ((elo (aif temp (process-expression le) temp (apply #'process peo le)))
+	   (ero (aif temp (process-expression ri) temp (apply #'process peo ri)))
 	   (infix (make-infix-expression
-		    :node-parent peo 
+		    :node-parent peo
 		    :operator (symbol-name o)
 		    :expression-left-operand elo
 		    :expression-right-operand ero
@@ -336,20 +371,23 @@
 	infix)))
 
 ; This should be handled by the parser.
-(defun process-expression (np e)
-  (format t "process-expression  node-parent ~a expression ~a" np e)
+(defun process-expression (e)
+  (format t "process-expression expression ~a" e)
   (typecase e
        (number (let* ((tb (make-type-binding :binding-name "int" :binding-superclass nil))
-		      (nl (make-number-literal :literal-token (format nil "~d" e) :expression-type-binding tb :node-parent np)))
+		      (nl (make-number-literal :literal-token (format nil "~d" e) :expression-type-binding tb)))
 		 nl))
-       (string (let* ((st (make-type-binding :binding-name "String")) 
+       (string (let* ((st (make-type-binding :binding-name "String"))
 		      (sl (make-string-literal :literal-value e :expression-type-binding st)))
 		 sl))
        ; If name binding is needed, then binding needs to be accessable
        ; since it was created when the field was processed.
-       (symbol (let* ((sn (make-simple-name :name-string (symbol-name e) :name-binding nil :node-parent np)))
+       (symbol (let* ((nm (symbol-name e))
+		      (tb (make-type-binding :binding-name "int")) ;Fixme with actual type
+		      (sb (make-variable-binding :binding-name nm :binding-modifiers 0))
+		      (sn (make-simple-name :name-string nm :name-binding sb :expression-type-binding tb)))
 		 sn))
-       (t      (apply #'process np e))))
+       (t      nil)))
 
 ; Need to create return statement first to specialize on it.  If parser
 ; returned an expression vs an expression statement, then this could be
@@ -360,6 +398,7 @@
     (format t "~&destructuring-bind value ~a~%" e)
     (let* ((rs (make-return-statement :node-parent jb))
 	   (ex (apply #'process rs e)))
+	(break "ex ~a" ex)
       (setf (slot-value rs 'jnil.ast::statement-expression) ex)
       (safe-push jb jnil.ast::statements rs))))
 
@@ -374,40 +413,36 @@
   (format t "~&process~a variable-declaration ~a~%" eqe r)
   (destructuring-bind (e) r
     (format t "~&destructuring-bind value ~a~%" e)
-    ;; This should be handled by the parser not here.
-    (typecase e
-       (number (let* ((tb (make-type-binding :binding-name "int" :binding-superclass nil))
-		      (nl (make-number-literal :literal-token (format nil "~d" e) :expression-type-binding tb))
-		      (es (make-expression-statement :expression nl :node-parent vd :child nl)))
-		 (setf (slot-value vd 'jnil.ast::declaration-initializer) es)))
-       (string (let* ((sl (make-string-literal :literal-value e :expression-type-binding nil))
-		      (es (make-expression-statement :expression sl :node-parent vd :child sl)))
-		 (setf (slot-value vd 'jnil.ast::declaration-initializer) es)))
-	; If name binding is needed, then binding needs to be accessable
-	; since it was created when the field was processed.
-	(symbol (let* ((sn (make-simple-name :name-string (symbol-name e) :name-binding nil))
-		       (es (make-expression-statement :expression sn :expression-type-binding nil :node-parent vd :child sn)))
-		  (setf (slot-value vd 'jnil.ast::declaration-initializer) es)))
-	(t      (apply #'process vd e)))))
+    (let* ((per (aif temp (process-expression e) temp (apply #'process vd e)))
+	   (es (make-expression-statement :expression per :node-parent vd :child per)))
+	(break "per ~a" per)
+	(setf (slot-value vd 'jnil.ast::declaration-initializer) es))))
+
+(defmethod process (mi (eqpost (eql 'jnil.ast::postfix-expression)) &rest r)
+  (format t "~&process~a no specialization ~a~%" eqpost r)
+  (destructuring-bind (e o &optional unex) r
+    (when (and (boundp 'unex) unex) (warn "Unexpected third value in POST processing ~a" unex))
+    (let* ((per (aif temp (process-expression e) temp (apply #'process mi e)))
+	   (pofe (make-postfix-expression :node-parent mi :expression-operand per :expression-operator (symbol-name o) :child per)))
+  pofe)))
+
+(defmethod process (mi (eqpre (eql 'jnil.ast::prefix-expression)) &rest r)
+  (format t "~&process~a no specialization ~a~%" eqpre r)
+  (destructuring-bind (e o &optional unex) r
+    (when (and (boundp 'unex) unex) (warn "Unexpected third value in PRE processing ~a" unex))
+    (let* ((per (aif temp (process-expression e) temp (apply #'process mi e)))
+	   (pofe (make-prefix-expression :node-parent mi :expression-operand per :expression-operator (symbol-name o) :child per)))
+  pofe)))
 
 (defmethod process (mi (eqe (eql 'jnil.ast::expr)) &rest r)
   (format t "~&process~a no specialization ~a~%" eqe r)
   (destructuring-bind (e) r
     (format t "~&destructuring-bind value ~a~%" e)
-    (let ((es (make-instance 'jnil.ast::expression-statement)))
-      (setf (slot-value es 'jnil.ast::node-parent) mi)
-      ;; This should be handled by the parser not here.
-      (typecase e
-	(number (format t "It is an integer: ~d" e)) ;fixme
-	(string (let ((sl (make-string-literal :node-parent es :literal-value e)))
-		  (setf (slot-value es 'jnil.ast::expression) sl)
-		  (safe-push mi jnil.ast::arguments es))) ;fixme
-	; If name binding is needed, then binding needs to be accessable
-	; since it was created when the field was processed.
-	(symbol (let ((sn (make-simple-name :node-parent es :name-string (symbol-name e) :name-binding nil)))
-		  (setf (slot-value es 'jnil.ast::expression) sn)
-		  (safe-push mi jnil.ast::arguments es))) ;fixme
-	(t      (apply #'process es e))))))
+    (let* ((per (aif temp (process-expression e) temp (apply #'process mi e)))
+	   (es (make-expression-statement :expression per :node-parent mi :child per)))
+
+	(break "per ~a" per)
+	(safe-push mi jnil.ast::arguments es)))) ;fixme
 
 (defmethod process ((es jnil.ast::expression-statement) (eqmc (eql 'jnil.ast::method_call)) &rest r)
   (format t "~&process~a expression statement specialization ~a~%" eqmc r)
@@ -417,24 +452,21 @@
 	   (bqm (format nil "~{~a~^-~}" (butlast qm 1)))
 	   (sns (format nil "~@:(~{~a~^-~}~)" qm))
 	   (sn (make-simple-name :name-string sns :name-binding nil))
-	   (mb (make-method-binding))
-	   (mi (make-method-invocation :node-parent es :invocation-method-binding mb :invocation-expression sn :invocation-name sn :child sn))
 	   (tbsn (make-simple-name :node-parent nil :name-string bqm :name-binding nil))
 	   (tb (make-type-binding :binding-name tbsn ))
+	   (mb (make-method-binding :binding-declaring-class tb))
+	   (mi (make-method-invocation :node-parent es :invocation-method-binding mb :invocation-expression sn :invocation-name sn :child sn))
 	   )
       (setf (slot-value es 'jnil.ast::expression) mi)
-      (setf (slot-value mb 'jnil.ast::binding-declaring-class) tb)
       (format t "~&qualified method ~a~%" qm)
       (format t "~&argument list from destructuring bind ~a~%" al)
-      (apply #'process mi al))
-    (format t "~&after call~%")
-    ))
+      (prog1 ;remove prog1 after debugging
+	(apply #'process mi al)
+	(format t "~&after call~%")))))
 
-; (labels ((modifiers (m &optional (acc nil)))
-; (trace process)
-; (process-java-ast nil nil)
-;(format t "~&~&first java-ast is ~A~%" *java-ast*)
-;(print (apply #'process nil *java-ast* ))
+(defun set-node-parent (&key parent child)
+  (setf (slot-value child 'jnil.ast::node-parent) parent))
+
 (defun fqn (i &optional (acc nil))
   (cond ((null i) acc)
 	((atom i) (push i acc) acc)
