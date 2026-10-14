@@ -169,6 +169,7 @@ tokens {
     ARRAY_DECLARATOR_LIST;
     ARRAY_ELEMENT_ACCESS;
     ARRAY_INITIALIZER;
+    ASSIGNMENT;
     BLOCK_SCOPE;
     CAST_EXPR;
     CATCH_CLAUSE_LIST;
@@ -760,20 +761,23 @@ expression
 
 assignmentExpression
     :   conditionalExpression
-        (   (   ASSIGN^
-            |   PLUS_ASSIGN^
-            |   MINUS_ASSIGN^
-            |   STAR_ASSIGN^
-            |   DIV_ASSIGN^
-            |   AND_ASSIGN^
-            |   OR_ASSIGN^
-            |   XOR_ASSIGN^
-            |   MOD_ASSIGN^
-            |   SHIFT_LEFT_ASSIGN^
-            |   SHIFT_RIGHT_ASSIGN^
-            |   BIT_SHIFT_RIGHT_ASSIGN^
-        )
-        assignmentExpression)?
+       (operators^ assignmentExpression)?
+    ;
+
+operators
+    : op =  (   ASSIGN
+            |   PLUS_ASSIGN
+            |   MINUS_ASSIGN
+            |   STAR_ASSIGN
+            |   DIV_ASSIGN
+            |   AND_ASSIGN
+            |   OR_ASSIGN
+            |   XOR_ASSIGN
+            |   MOD_ASSIGN
+            |   SHIFT_LEFT_ASSIGN
+            |   SHIFT_RIGHT_ASSIGN
+            |   BIT_SHIFT_RIGHT_ASSIGN
+        ) -> ^(ASSIGNMENT $op)
     ;
 
 conditionalExpression
@@ -856,8 +860,8 @@ multiplicativeExpression
 unaryExpression
     :   PLUS unaryExpression        ->  ^(UNARY_PLUS[$PLUS, "UNARY_PLUS"] unaryExpression)
     |   MINUS unaryExpression       ->  ^(UNARY_MINUS[$MINUS, "UNARY_MINUS"] unaryExpression)
-    |   INC postfixedExpression     ->  ^(PRE_INC[$INC, "PRE_INC"] postfixedExpression)
-    |   DEC postfixedExpression     ->  ^(PRE_DEC[$DEC, "PRE_DEC"] postfixedExpression)
+    |   INC postfixedExpression     ->  ^(PRE_INC[$INC, "PREFIX-EXPRESSION"] postfixedExpression INC)
+    |   DEC postfixedExpression     ->  ^(PRE_DEC[$DEC, "PREFIX-EXPRESSION"] postfixedExpression DEC)
     |   unaryExpressionNotPlusMinus
     ;
 
@@ -891,8 +895,8 @@ postfixedExpression
         |   LBRACK expression RBRACK                ->  ^(ARRAY_ELEMENT_ACCESS $postfixedExpression expression)
         )*
         // At the end there may follow a post increment/decrement.
-        (   INC -> ^(POST_INC[$INC, "POST_INC"] $postfixedExpression)
-        |   DEC -> ^(POST_DEC[$DEC, "POST_DEC"] $postfixedExpression)
+        (   INC -> ^(POST_INC[$INC, "POSTFIX-EXPRESSION"] $postfixedExpression INC)
+        |   DEC -> ^(POST_DEC[$DEC, "POSTFIX-EXPRESSION"] $postfixedExpression DEC)
         )?
     ;
 
