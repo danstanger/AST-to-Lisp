@@ -115,8 +115,14 @@
   :format ("~:<cond ~5I~{~w~^~:@_~}~:>" (list clauses))
   :group lisp-conditional)
 
+#|
 (defcode lisp-simple-cond (test then else)
   :format ("~:<cond (~w~5I~:@_~@[ ~w~])~@[~5I~:@_(t ~w)~]~:>" (list test then else))
+  :group lisp-conditional)
+|#
+
+(defcode lisp-simple-cond (test then else)
+  :format ("~:<cond (~w~5I~:@_~@[ ~w~])~@[~5I~:@_(t ~w)~]~:>" test then else)
   :group lisp-conditional)
 
 (defcode lisp-if (test then else)
@@ -153,7 +159,7 @@
 	   (list var init incr var test body)))
 
 (defcode lisp-while (test body)
-  :format ("~:<loop while ~w~@[~3I~:@_do ~w~]~:>" (list test body)))
+  :format ("~:<loop while ~w~@[~3I~:@_do ~w~]~:>" test body))
 
 (defcode lisp-case-statement (test body)
   :format ("~:<~w~@[ ~w~]~:>" (list test body)))
