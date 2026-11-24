@@ -103,6 +103,11 @@
 (defmethod node-children ((node node))
   nil)
 
+; This is a crude hack, because I don't understand how this object gets
+; produced. Delete after fixing real problem.
+(defmethod node-children ((node list))
+  (node-children (first node)))
+
 (defmethod make-signature (dummy)
   "Returns the signature of a NODE.
 By definition, a NODE's signature is unique in the context of a Java Project."

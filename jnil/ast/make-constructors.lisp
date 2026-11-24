@@ -71,7 +71,7 @@
 (make-constructor for-statement statement-body statement-expression )
 (make-constructor ifstatement ifstatement-test ifstatement-then ifstatement-else )
 (make-constructor infix-expression expression-left-operand expression-right-operand extended-operands-p operator)
-(make-constructor initializer initializer-body )
+(make-constructor initializer initializer-body declaration-modifiers)
 (make-constructor instanceof-expression expression-left-operand expression-right-operand)
 (make-constructor jblock)
 (make-constructor labeled-statement statement-label statement-body )

@@ -47,7 +47,7 @@
 (jlinker-cleanup) ;clear plist
 
 (defmethod invocation-args ((invocation method-invocation))
-  (jlist2cons (jcall "arguments" invocation)))
+  (slot-value invocation 'arguments))
 
 ;;; Lisp extensions
 (defun method-invocation-p (obj)

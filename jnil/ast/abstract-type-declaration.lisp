@@ -44,7 +44,7 @@
 (jlinker-cleanup) ;clear plist
 
 (defmethod declaration-body-decls ((abstract-type-decls abstract-type-declaration))
-  (jlist2cons (jcall "bodyDeclarations" abstract-type-decls)))
+  (slot-value abstract-type-decls 'jnil.ast::bodydeclarations))
 
 ;;; Lisp extensions
 (defun abstract-type-declaration-p (obj)

@@ -33,17 +33,17 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def-java-class (prefix-expression "org.eclipse.jdt.core.dom.PrefixExpression") (expression)
-  () () (operator))
+  () () ())
 
 ;;; Java methods
 (def-java-method (expression-operand "getOperand") (prefix-expression))
 
+; Eliminate jcall in favor of def-java-method slot creation
+(def-java-method (expression-operator "getOperator") (prefix-expression))
+
 (jlinker-output1) ;instantiate defclass
 (jlinker-output2) ;instantiate methods
 (jlinker-cleanup) ;clear plist
-
-(defmethod expression-operator ((expr prefix-expression))
-  (jcall "toString" (jcall "getOperator" expr)))
 
 ;;; Lisp extensions
 (defun prefix-expression-p (obj)

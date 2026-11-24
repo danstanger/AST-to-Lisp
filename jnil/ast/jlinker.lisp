@@ -122,7 +122,6 @@
       ("statements" . (lambda (arg) (slot-value arg 'jnil.ast::statements)))
       ("getKind" . (lambda (arg) (cerror "not implemented")))
       ("getIdentifier" . (lambda (arg) (cerror "not implemented")))
-      ("bodyDeclarations" . (lambda (arg) (cerror "not implemented")))
       ("updaters" . (lambda (arg) (cerror "not implemented")))
       ("types" . (lambda (arg) (slot-value arg 'jnil.ast::types)))
       ("thrownExceptions" . (lambda (arg) (slot-value arg 'jnil.ast::thrownexceptions)))
