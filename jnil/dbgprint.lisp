@@ -1,7 +1,8 @@
 ; This is throwaway code, so its ok to use some special cases
 (defun dbgprint (x &optional (d 0) (sdn ""))
   (when (> d 8) (return-from dbgprint nil))
-  (cond ((or (typep x 'jnil.ast::node) (typep x 'jnil.ast::binding))
+  (cond ((listp x) (dolist (o x) (dbgprint o d sdn)))
+        ((or (typep x 'jnil.ast::node) (typep x 'jnil.ast::binding))
 	(let* ((co (class-of x))
 	       (cn (closer-mop::class-name co))
 	       (cs (closer-mop::class-slots co)))
@@ -17,7 +18,6 @@
 		    ((string-equal sn "BINDING-DECLARING-CLASS") ; Special case, dont recurse
 		     (format t "~&~v,1@t~a ~a~%" (1+ d) sn (closer-mop::class-name (class-of v))))
 		    (t (dbgprint v (1+ d) sdn)))))))
-	((listp x) (dolist (o x) (dbgprint o d sdn)))
 	(t (format t "~&~v,1@t~a ~a~%" d sdn x))))
 
 

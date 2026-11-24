@@ -149,7 +149,7 @@
   :format ((concatenate 'string
 	     "~:<loop~@[ with~{ ~a~^ and~}~]~@[ while ~w~]~:[~;~3I~:@_do ~]~@[~w~:[~;~6I~:@_~:*~]~]"
 	     "~@[~6I~{~w~^~:@_~}~]~:>")
-	   (list inits test (or body updaters) body updaters)))
+	   inits test (or body updaters) body updaters))
 
 (defcode lisp-do (test body)
   :format ("~:<loop ~@[do ~w~3I~:@_~]while ~w~:>" (list body test)))

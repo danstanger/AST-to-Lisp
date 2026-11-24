@@ -207,6 +207,7 @@ tokens {
     PRE_DEC;
     PRE_INC;
     PRIMITIVE_TYPE;
+    RELATIONAL;
     QUALIFIED_TYPE_IDENT;
     STATIC_ARRAY_CREATOR;
     SUPER_CONSTRUCTOR_CALL;
@@ -432,7 +433,7 @@ arrayDeclaratorList
 
 arrayInitializer
     :   LCURLY (variableInitializer (COMMA variableInitializer)* COMMA?)? RCURLY
-        ->  ^(ARRAY_INITIALIZER[$LCURLY, "ARRAY_INITIALIZER"] variableInitializer*)
+        ->  ^(ARRAY_INITIALIZER[$LCURLY, "ARRAY-INITIALIZER"] variableInitializer*)
     ;
 
 throwsClause
@@ -676,7 +677,7 @@ statement
         |                                                                   ->  ^(IF[$IF, "IFSTATEMENT"] parenthesizedExpression $ifStat)
         )
     |   FOR LPAREN
-        (   forInit SEMI forCondition SEMI forUpdater RPAREN statement      ->  ^(FOR forInit forCondition forUpdater statement)
+        (   forInit SEMI forCondition SEMI forUpdater RPAREN statement      ->  ^(FOR[$FOR, "FOR-STATEMENT"] forInit forCondition forUpdater statement)
         |   localModifierList type IDENT COLON expression RPAREN statement
                                                                             ->  ^(FOR_EACH[$FOR, "FOR_EACH"] localModifierList type IDENT expression statement)
         )
@@ -820,13 +821,21 @@ instanceOfExpression
 
 relationalExpression
     :   shiftExpression
-        (   (   LESS_OR_EQUAL^
-            |   GREATER_OR_EQUAL^
-            |   LESS_THAN^
-            |   GREATER_THAN^
-            )
+        (   relationalOperator^
             shiftExpression
         )*
+    ;
+
+// Try to force the relational operator to always be a list. Coding the ast
+// construction would also work, but ties the parser to a specific language.
+// There is probably a better way to do this as well, but I couldn't figure
+// it out.
+relationalOperator
+    : op = (   LESS_OR_EQUAL
+           |   GREATER_OR_EQUAL
+           |   LESS_THAN
+           |   GREATER_THAN
+           ) -> ^( LPAREN[$op,"("] RELATIONAL $op RPAREN[$op,")"] )
     ;
 
 shiftExpression

@@ -24,7 +24,7 @@
 
 (in-package #:jnil.ast)
 ;(setf *print-length* 4)
-(defmacro safe-push (c slot td)
+(defmacro safe-push (c slot td) ; This should be replaced with enqueue as described in PAIP. Otherwise the list needs reversing
   `(if (slot-boundp ,c ',slot)
        (push ,td (slot-value ,c ',slot))
        (setf (slot-value ,c ',slot) (list ,td))))
@@ -93,15 +93,15 @@
     (let* ((sn (make-simple-name :name-string (string n) :name-binding nil))
 	   (md (make-method-declaration :child sn :node-parent td :declaration-name sn :parameters nil :thrownexceptions nil :name sn)))
       (when (listp m) (apply #'process md m)
-;(break "function-method-declaration 87 type-of node-parent ~a" (type-of (slot-value md 'jnil.ast::node-parent)))
+;(break "function-method-declaration 96 type-of node-parent ~a" (type-of (slot-value md 'jnil.ast::node-parent)))
        )
       (process-return-type "void" md)
       (push md (slot-value td 'jnil.ast::methods))
       (format t "~&fpl ~a~%" fpl)
       (apply #'process md fpl)
-;(break "function-method-declaration 93 type-of node-parent ~a" (type-of (slot-value md 'jnil.ast::node-parent)))
+;(break "function-method-declaration 102 type-of node-parent ~a" (type-of (slot-value md 'jnil.ast::node-parent)))
       (apply #'process md bs)
-;(break "function-method-declaration 95 type-of node-parent ~a" (type-of (slot-value md 'jnil.ast::node-parent)))
+;(break "function-method-declaration 104 type-of node-parent ~a" (type-of (slot-value md 'jnil.ast::node-parent)))
 ))))
 
 (defmethod process (td (eqfmd (eql 'jnil.ast::function_method_decl)) &rest r)
@@ -114,20 +114,20 @@
 	   (md (make-method-declaration :node-parent td :child sn :declaration-name sn :name sn :thrownexceptions nil)))
       (setf (slot-value md 'jnil.ast::parameters) nil) ;fixme: create an initial value
       (when (listp ml) (apply #'process md ml))
-;(break "function-method-declaration 110 type-of node-parent ~a" (type-of (slot-value md 'jnil.ast::node-parent)))
+;(break "function-method-declaration 117 type-of node-parent ~a" (type-of (slot-value md 'jnil.ast::node-parent)))
       (process-return-type "void" md) ;fixme correct void
       (push md (slot-value td 'jnil.ast::methods))
       (format t "~&fpl ~a~%" fpl)
       (when (listp fpl) (apply #'process md fpl)
-;(break "function-method-declaration 118 type-of node-parent ~a" (type-of (slot-value md 'jnil.ast::node-parent)))
+;(break "function-method-declaration 122 type-of node-parent ~a" (type-of (slot-value md 'jnil.ast::node-parent)))
 	)
       (apply #'process md bs)
-;(break "function-method-declaration 122 type-of node-parent ~a" (type-of (slot-value md 'jnil.ast::node-parent)))
+;(break "function-method-declaration 125 type-of node-parent ~a" (type-of (slot-value md 'jnil.ast::node-parent)))
       )))
 
 (defmethod process (c (eqpa (eql 'package-declaration)) &rest r)
   (format t "~&process~a ~a~%" eqpa r)
-  (let* ((ns (fqn (first r)))
+  (let* ((ns (fully-qualified-name (first r)))
 	 (pb (make-package-binding :binding-name ns))
 	 (sn (make-simple-name :name-string ns :name-binding pb))
 	 (pd (make-package-declaration :node-parent c :declaration-name sn :child sn)))
@@ -136,11 +136,11 @@
 (defmethod process (c (eqim (eql 'jnil.ast::import-declaration)) &rest r)
   (format t "~&process~a ~a~%" eqim r)
   (labels ((allexports (x) (eql '.* x)))
-    (let ((nm (make-name :name-string (format nil "~{~a~^.~}" (fqn (first r)))))
+    (let ((nm (make-name :name-string (format nil "~{~a~^.~}" (fully-qualified-name (first r)))))
 	  (id (make-import-declaration :node-parent c :child nm :declaration-name nm :on-demand-p (allexports (second r)))))
       (safe-push c jnil.ast::imports id))))
 
-(defmethod process (c (eqml (eql 'jnil.ast::modifier_list)) &rest r)
+(defmethod process (c (eqml (eql 'jnil.ast::modifier_list)) &rest r) ;fixme
   (format t "~&process~a class-arg ~a |~a|~%" eqml (type-of c) r)
   (destructuring-bind (n &rest ml) r ; Ignore the nul
     (when ml
@@ -150,14 +150,14 @@
 
 (defmethod process (td (eqvd (eql 'jnil.ast::var_declaration)) &rest r)
   (format t "~&process~a class-arg ~a |~a|~%" eqvd (type-of td) r)
-      (setf *verbose-output* 1)
   (destructuring-bind (mo ty vdl) r
     (let* ((ti (apply #'process nil ty)))
+     (let ((*verbose-output* 1))
       (format t "~&process~a modifier ~a~%" eqvd mo)
       (format t "~&process~a tipe ~a~%" eqvd ti)
       (format t "~&process~a type-binding ~a~%" eqvd (type-binding ti))
       (format t "variable vdl ~a~%" vdl)
-      (setf *verbose-output* 0)
+     )
       (apply #'process (make-triple :mo mo :ti ti :ty td) vdl))))
 
 (defmethod process (tr (eqvdl (eql 'jnil.ast::var_declarator_list)) &rest r)
@@ -225,6 +225,7 @@
     (apply #'process svd r)
     (safe-push md jnil.ast::parameters svd))))
 
+; fixme
 ; I expect that only the final modifier will appear here, which is ignored.
 ; Annotations are killed in the parser.
 (defmethod process (svd (eqlml (eql 'jnil.ast::local_modifier_list)) &rest r)
@@ -245,8 +246,8 @@
     ; fix return values.
     (let ((ty (apply #'process nil ty))
 	  (at (when ar (apply #'process nil ar))))
-      (cond ((boundp 'at) (setf (slot-value at 'jnil.ast::element-type) ty) ar)
-	    (t ty)))))
+      (if at (progn (setf (slot-value at 'jnil.ast::element-type) ty) ar)
+	     ty))))
 
 (defmethod process (obj (eqpt (eql 'jnil.ast::primitive-type)) &rest r)
   (format t "~&process~a ~a~%" eqpt r)
@@ -284,7 +285,13 @@
 
 (defmethod process (obj (eqas (eql 'jnil.ast::assignment)) &rest r)
   (format t "~&process~a ~a~%" eqas r)
-  t)
+  (break "288 first r ~a" (first r))
+  (first r))
+
+(defmethod process (obj (eqre (eql 'jnil.ast::relational)) &rest r)
+  (format t "~&process~a ~a~%" eqre r)
+(break "292 first r ~a" (first r))
+  (first r))
 
 (defmethod process (obj (eqsac (eql 'jnil.ast::static_array_creator)) &rest r)
   (format t "~&process~a ~a~%" eqsac r)
@@ -310,25 +317,32 @@
 	#'(lambda(a) (format t "~&process element ~a~%" a)
 		     (apply #'process md a)) r))
 
+(defmethod process (md (eqal (eql 'jnil.ast::array-initializer)) &rest r)
+  (format t "~&process~a ~a~%" eqal r)
+  (mapcar
+	#'(lambda(a) (format t "~&process element ~a~%" a)
+		     (apply #'process md a)) r))
+
 (defmethod process (md (eqbs (eql 'jblock)) &rest r)
   (format t "~&process~a ~a input class ~a ~%" eqbs r md)
 ;  (break "~&process~a ~a input class ~a ~%" eqbs r md)
   (let ((jb (make-jblock :node-parent md)))
-    ; Fixme this should be handled by an after method
     (when (slot-exists-p md 'jnil.ast::declaration-body)
       (setf (slot-value md 'jnil.ast::declaration-body) jb))
     (if (atom (first r))
 	(progn (warn "block_scope atom ~a" (first r)) (apply #'process md r))
-	(dolist (s r)
-	  (apply #'process jb s)))
-    jb))
+	(setf (slot-value jb 'statements)
+	  (mapcar #'(lambda (s) (apply #'process jb s)) r)))
+    (format t "336 jblock statements ~a~%"
+		(slot-value jb 'statements)) 
+	jb))
 
-; Lets see if this can be used to replace the assignment for declaration body
-; After a few tries of call-next-method I was not able to get this to be called
-(defmethod process :after ((md jnil.ast::method-declaration) (jb jnil.ast::jblock) &rest r)
-  (break "after method jblock ~a eq check ~a"
-     md (eq (slot-value md 'jnil.ast::declaration-body) jb))
-  t)
+; fixme move declaration-body assignment here
+(defmethod process :around ((md jnil.ast::method-declaration) (eqbs (eql 'jblock)) &rest r)
+  (let ((rv (call-next-method)))
+    (break "344 method ~a jblock ~a eq check ~a"
+     md rv (eq (slot-value md 'jnil.ast::declaration-body) rv))
+    rv))
 
 (defmethod process ((jb jnil.ast::jblock) (eqes (eql 'jnil.ast::expr)) &rest r)
   (format t "~&process~a block specialization ~a~%" eqes r)
@@ -338,7 +352,7 @@
            (ex (apply #'process es e)))
       (setf (slot-value es 'jnil.ast::expression) ex)
       (safe-push jb jnil.ast::statements es)
-(break "jblock 332" (progn
+(break "jblock 355" (progn
   (format t "es ~a~%" es)
   (format t "length statements ~a~%" (length (slot-value jb 'jnil.ast::statements)))
   (dolist (s (slot-value jb 'jnil.ast::statements))
@@ -358,6 +372,43 @@
 (break "if ~a then ~a else ~a" (ifstatement-test ifst) (ifstatement-then ifst) (ifstatement-else ifst))
       (safe-push obj jnil.ast::statements ifst))))
 
+(defmethod process (obj (eqfo (eql 'jnil.ast::for-statement)) &rest r)
+  (format t "~&process~a ~a~%" eqfo r)
+  (destructuring-bind (dbfin dbfcon dbfup bl &rest unex) r
+    (when (and (boundp 'unex) unex) (warn "Unexpected fifth value in FOR processing ~a" unex))
+    (let* ((fin (when (listp dbfin) (apply #'process nil dbfin)))
+	   (fcon (when (listp dbfcon) (apply #'process nil dbfcon)))
+	   (fup (when (listp dbfup) (apply #'process nil dbfup)))
+	   (blk (apply #'process nil bl))
+	   (ch (remove-if #'null (list fin fcon fup blk)))
+	   (fst (make-for-statement
+			:node-parent obj
+			:initializers fin
+			:statement-expression fcon
+			:updaters fup
+			:statement-body blk)))
+      (set-node-parents :parent fst :children ch)
+      fst)))
+
+(defmethod process (obj (eqfin (eql 'jnil.ast::for_init)) &rest r)
+  (format t "~&process~a ~a~%" eqfin r)
+  (destructuring-bind (var &rest unex) r
+    (when (and (boundp 'unex) unex) (warn "Unexpected second value in FOR_INIT processing ~a" unex))
+    (apply #'process obj var)))
+
+(defmethod process (obj (eqfcon (eql 'jnil.ast::for_condition)) &rest r)
+  (format t "~&process~a obj ~a r ~a~%" eqfcon obj r)
+  (destructuring-bind (con &rest unex) r
+    (when (and (boundp 'unex) unex) (warn "Unexpected second value in FOR_CONDITION processing ~a" unex))
+    (apply #'process 'jnil.ast::for_condition con)))
+
+(defmethod process (obj (eqfup (eql 'jnil.ast::for_update)) &rest r)
+  (format t "~&process~a ~a~%" eqfup r)
+  (destructuring-bind (fup &rest unex) r
+    (when (and (boundp 'unex) unex) (warn "Unexpected third value in FOR_UPDATE processing ~a" unex))
+    (let ((rv (apply #'process 'jnil.ast::for_update fup)))
+      (if (listp rv) rv (list rv))))) ; This is expected to be a list
+
 (defmethod process (obj (eqws (eql 'jnil.ast::while)) &rest r)
   (format t "~&process~a ~a~%" eqws r)
   (destructuring-bind (pe js) r
@@ -365,7 +416,7 @@
 	   (body (apply #'process nil js))
 	   (whst (make-while-statement :node-parent obj :children (list peo body) :statement-expression peo :statement-body body)))
 ; Not sure if I need to check if obj is a jblock
-(break "while 355 ~a statements ~a" (statement-expression whst) (statement-body whst))
+(break "while 419 ~a statements ~a" (statement-expression whst) (statement-body whst))
       (safe-push obj jnil.ast::statements whst))))
 
 ; By specializing on parenthesized-expression an expression will be created
@@ -390,6 +441,27 @@
 		    :children (list elo ero))))
 ;(break "infix operator ~a" (slot-value infix 'jnil.ast::operator))
 	infix)))
+
+(defmethod process ((efc (eql 'jnil.ast::for_condition))
+		    (eqe (eql 'jnil.ast::expr)) &rest r)
+  (format t "~&process~a 447 specialization ~a rest ~a~%" eqe efc r)
+  (destructuring-bind (o le ri) (first r)
+    (let* ((elo (aif temp (process-expression le) temp (apply #'process nil le)))
+	   (ero (aif temp (process-expression ri) temp (apply #'process nil ri)))
+	   (eop (aif temp (process-expression o) temp (apply #'process nil o)))
+	   (infix (make-infix-expression
+		    :operator (symbol-name eop)
+		    :expression-left-operand elo
+		    :expression-right-operand ero
+		    :children (list elo ero))))
+;(break "infix operator ~a" (slot-value infix 'jnil.ast::operator))
+	infix)))
+
+(defmethod process ((efup (eql 'jnil.ast::for_update))
+		    (eqe (eql 'jnil.ast::expr)) &rest r)
+  (format t "~&process~a 462 specialization ~a rest ~a~%" eqe efup r)
+  (let* ((up (apply #'process nil (first r))))
+	up))
 
 (defmethod process (nil-obj (eqdl (eql 'jnil.ast::decimal-literal)) &rest r)
   (format t "~&process~a ~a~%" eqdl r)
@@ -495,7 +567,7 @@
     (let* ((per (aif temp (process-expression e)
 		     (prog1 temp (set-node-parent :parent mi :child temp))
 		     (apply #'process mi e))))
-	(break "per 492 ~a~%~%mi ~a" per mi)
+	(break "per 570 ~a~%~%mi ~a" per mi)
       per)))
 
 (defmethod process (mi (eqe (eql 'jnil.ast::expr)) &rest r)
@@ -505,7 +577,7 @@
     (let* ((per (aif temp (process-expression e) temp (apply #'process mi e)))
 	   (es (make-expression-statement :expression per :node-parent mi :child per)))
 
-	(break "per 503 ~a~%es ~a~%expression ~a~%mi ~a" per es (slot-value es 'jnil.ast::expression) mi)
+	(break "per 580 ~a~%es ~a~%expression ~a~%mi ~a" per es (slot-value es 'jnil.ast::expression) mi)
 	(safe-push mi jnil.ast::arguments es)
     es)))
 
@@ -513,7 +585,7 @@
   (format t "~&process~a expression statement specialization ~a~%" eqmc r)
   (destructuring-bind (m al) r
     (format t "~&method ~a argument list ~a~%" m al)
-    (let* ((qm (fqn m))
+    (let* ((qm (fully-qualified-name m))
 	   (bqm (format nil "~{~a~^-~}" (butlast qm 1)))
 	   (sns (format nil "~@:(~{~a~^-~}~)" qm))
 	   (sn (make-simple-name :name-string sns :name-binding nil))
@@ -533,11 +605,17 @@
 (defun set-node-parent (&key parent child)
   (setf (slot-value child 'jnil.ast::node-parent) parent))
 
-(defun fqn (i &optional (acc nil))
+; This is a hack instead of fixing the make macro to handle nested lists. 
+(defun set-node-parents (&key parent children)
+  (dolist (s children)
+    (if (listp s) (set-node-parents :parent parent :children s) 
+		  (setf (slot-value s 'jnil.ast::node-parent) parent))))
+
+(defun fully-qualified-name (i &optional (acc nil))
   (cond ((null i) acc)
 	((atom i) (push i acc) acc)
-	(t (fqn (second i) (push (third i) acc)))))
-;(trace fqn)
+	(t (fully-qualified-name (second i) (push (third i) acc)))))
+;(trace fully-qualified-name)
 
 (defun process-return-type (arg parent)
   (if (member arg +primitive-types+ :test #'equal)

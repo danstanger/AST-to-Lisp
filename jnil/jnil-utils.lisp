@@ -191,7 +191,9 @@
 	  ((hex 2) (oct 4) (dec 6))
 	  (values hex oct dec)))
 |#
-(defun parse-java-int-from-string (token) (values 0 0 0))
+; For now assume the token only contains an integer. This should be fixed
+; in the parser.
+(defun parse-java-int-from-string (token) (values nil nil token))
 
 (defun coerce-java-int (number &optional longp)
   (let ((most-positive (if longp #x7fffffffffffffff #x7fffffff))

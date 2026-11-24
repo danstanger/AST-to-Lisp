@@ -45,10 +45,10 @@
 (jlinker-cleanup) ;clear plist
 
 (defmethod statement-updaters ((stmt for-statement)) 
-  (jlist2cons (jcall "updaters" stmt)))
+  (slot-value stmt 'updaters))
 
 (defmethod statement-initializers ((stmt for-statement))
-  (jlist2cons (jcall "initializers" stmt)))
+  (slot-value stmt 'initializers))
 
 ;;; Lisp extensions
 (defun for-statement-p (obj)

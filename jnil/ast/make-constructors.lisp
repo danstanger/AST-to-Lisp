@@ -68,7 +68,7 @@
 (make-constructor expression-statement expression )
 (make-constructor field-access field-access-expression field-access-name )
 (make-constructor field-declaration declaration-type )
-(make-constructor for-statement statement-body statement-expression )
+(make-constructor for-statement statement-body statement-expression initializers updaters)
 (make-constructor ifstatement ifstatement-test ifstatement-then ifstatement-else )
 (make-constructor infix-expression expression-left-operand expression-right-operand extended-operands-p operator)
 (make-constructor initializer initializer-body declaration-modifiers)
